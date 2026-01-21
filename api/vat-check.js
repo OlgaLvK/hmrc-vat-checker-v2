@@ -81,47 +81,55 @@ export default async function handler(req, res) {
 
   try {
     const token = await getAccessToken();
+export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-    const response = await axios.get(
-      `${baseUrl}/organisations/vat/check-vat-number/lookup/${formattedVAT}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/vnd.hmrc.2.0+json'
-        },
-        validateStatus: (status) => status < 500
-      }
-    );
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
 
-    if (response.status === 404) {
-      return res.status(200).json({
-        valid: false,
-        vatNumber: formattedVAT,
-        message: 'VAT number not found'
-      });
-    }
-
-    if (response.status !== 200) {
-      return res.status(200).json({
-        valid: false,
-        vatNumber: formattedVAT,
-        message: `API error: ${response.status}`
-      });
-    }
-
-    const target = response.data.target || {};
-    
-    return res.status(200).json({
-      valid: true,
-      vatNumber: target.vatNumber || formattedVAT,
-      name: target.name || 'N/A',
-      address: target.address || {}
-    });
-
-  } catch (error) {
-    console.error('Error:', error.message);
-    return res.status(500).json({ 
-      error: error.message || 'Internal server error' 
+  if (req.method !== 'POST') {
+    return res.status(200).json({ 
+      message: 'Use POST method',
+      method: req.method 
     });
   }
+
+  const { vatNumber } = req.body || {};
+
+  if (!vatNumber) {
+    return res.status(400).json({ 
+      error: 'VAT number is required',
+      body: req.body
+    });
+  }
+
+  // Временный тестовый ответ
+  const testData = {
+    '553557881': {
+      valid: true,
+      vatNumber: '553557881',
+      name: 'Credite Sberger Donal Inc.',
+      address: {
+        line1: '131B Barton Hamlet',
+        postcode: 'SW97 5CK',
+        countryCode: 'GB'
+      }
+    }
+  };
+
+  const formatted = vatNumber.replace(/\s+/g, '').toUpperCase();
+
+  if (testData[formatted]) {
+    return res.status(200).json(testData[formatted]);
+  }
+
+  return res.status(200).json({
+    valid: false,
+    vatNumber: formatted,
+    message: 'VAT number not found (test mode)'
+  });
 }
